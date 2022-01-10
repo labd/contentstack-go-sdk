@@ -33,6 +33,16 @@ type Client struct {
 	logLevel   int
 }
 
+type ErrorMessage struct {
+	ErrorMessage string              `json:"error_message"`
+	ErrorCode    int                 `json:"error_code"`
+	Errors       map[string][]string `json:"errors"`
+}
+
+func (e *ErrorMessage) Error() string {
+	return e.ErrorMessage
+}
+
 func NewClient(cfg ClientConfig) (*Client, error) {
 	url, err := url.Parse(cfg.BaseURL)
 	if err != nil {
@@ -51,6 +61,7 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		baseURL:    url,
 		authToken:  cfg.AuthToken,
 		httpClient: httpClient,
+		logLevel:   10,
 	}
 
 	return client, nil
@@ -110,7 +121,7 @@ func (c *Client) execute(ctx context.Context, method string, path string, params
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 
 	if c.logLevel > 0 {
-		// logRequest(req)
+		logRequest(req)
 	}
 
 	resp, err := c.httpClient.Do(req)
@@ -119,7 +130,7 @@ func (c *Client) execute(ctx context.Context, method string, path string, params
 	}
 
 	if c.logLevel > 0 {
-		// logResponse(resp)
+		logResponse(resp)
 	}
 
 	return resp, nil
@@ -131,19 +142,22 @@ func (c *Client) processResponse(r *http.Response, dst interface{}) error {
 
 	switch r.StatusCode {
 	case 200:
-		err = json.Unmarshal(content, &dst)
-		if err != nil {
+		if err = json.Unmarshal(content, &dst); err != nil {
 			return err
 		}
 		return nil
-
 	case 401:
 		result := make(map[string]interface{})
-		err = json.Unmarshal(content, &result)
-		if err != nil {
+		if err = json.Unmarshal(content, &result); err != nil {
 			return err
 		}
-		return fmt.Errorf("Unauhtorized")
+		return fmt.Errorf("Not authorized")
+	case 422:
+		result := ErrorMessage{}
+		if err = json.Unmarshal(content, &result); err != nil {
+			return err
+		}
+		return &result
 	default:
 		return fmt.Errorf("Unhandled StatusCode: %d", r.StatusCode)
 	}
