@@ -141,7 +141,7 @@ func (c *Client) processResponse(r *http.Response, dst interface{}) error {
 	defer r.Body.Close()
 
 	switch r.StatusCode {
-	case 200:
+	case 200, 201:
 		if err = json.Unmarshal(content, &dst); err != nil {
 			return err
 		}
