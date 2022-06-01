@@ -15,10 +15,9 @@ type Auth struct {
 }
 
 type ClientConfig struct {
-	AuthToken  string
-	BaseURL    string
-	LogLevel   int
-	HTTPClient *http.Client
+	BaseURL         string
+	HTTPClient      *http.Client
+	AuthToken       string
 }
 
 type UserCredentials struct {
@@ -30,7 +29,6 @@ type Client struct {
 	authToken  string
 	baseURL    *url.URL
 	httpClient *http.Client
-	logLevel   int
 }
 
 type ErrorMessage struct {
@@ -61,7 +59,6 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		baseURL:    url,
 		authToken:  cfg.AuthToken,
 		httpClient: httpClient,
-		logLevel:   10,
 	}
 
 	return client, nil
@@ -120,17 +117,9 @@ func (c *Client) execute(ctx context.Context, method string, path string, params
 	req.Header.Set("Accept", "application/json; charset=utf-8")
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 
-	if c.logLevel > 0 {
-		logRequest(req)
-	}
-
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
-	}
-
-	if c.logLevel > 0 {
-		logResponse(resp)
 	}
 
 	return resp, nil
