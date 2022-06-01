@@ -1,10 +1,35 @@
-# contentstack-go-sdk
+# Contentstack management SDK for Go
+This is the Go SDK for the contentstack management API. It is primarily
+developed to be used in our terraform provider for contenstack, see
+https://github.com/labd/terraform-provider-contentstack
 
+## Example
 
+```go
+cfg := management.ClientConfig{
+    BaseURL:    "https://eu-api.contentstack.com/",
+    HTTPClient: httpClient,
+    AuthToken:  "foobar", // Optional
+}
 
-## TODO
- - [ ] Manage stacks
- - [ ] Manage global fields
- - [ ] Manage content types
- - [ ] Manage webhooks
- - [ ] Manage workflows
+client, err := management.NewClient(cfg)
+if err != nil {
+    panic(err)
+}
+
+stackAuth := management.StackAuth{
+    ApiKey:          "foobar", // Required
+    ManagementToken: "secret", // Optional
+})
+
+instance, err := client.Stack(stackAuth)
+if err != nil {
+    panic(err)
+}
+
+webhooks, err := stack.WebHookFetchAll(context.TODO())
+if err != nil {
+    panic(err)
+}
+
+```
