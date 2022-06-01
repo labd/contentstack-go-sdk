@@ -42,6 +42,10 @@ func (e *ErrorMessage) Error() string {
 }
 
 func NewClient(cfg ClientConfig) (*Client, error) {
+	if cfg.BaseURL == "" {
+		return nil, fmt.Errorf("missing BaseURL")
+	}
+
 	url, err := url.Parse(cfg.BaseURL)
 	if err != nil {
 		return nil, err
