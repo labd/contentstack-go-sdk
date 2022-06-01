@@ -1,6 +1,7 @@
 package management
 
 import (
+	"fmt"
 	"net/http"
 )
 
@@ -14,11 +15,20 @@ type StackAuth struct {
 	ManagementToken string
 }
 
-func (c *Client) Stack(s *StackAuth) *StackInstance {
-	return &StackInstance{
+// Stack creates a new StackInstance which can be used for actions on the
+// given stack instance.
+func (c *Client) Stack(s *StackAuth) (*StackInstance, error) {
+
+	if c.authToken == "" && s.ManagementToken == "" {
+		return nil, fmt.Errorf("the management token is required when no auth token is used")
+	}
+
+	instance := &StackInstance{
 		client: c,
 		auth:   *s,
 	}
+
+	return instance, nil
 }
 
 func (si *StackInstance) headers() http.Header {
