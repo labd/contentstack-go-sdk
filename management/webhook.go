@@ -25,6 +25,7 @@ type WebHook struct {
 	Name            string               `json:"name"`
 	OrganizationUID string               `json:"org_uid,omitempty"`
 	Channels        []string             `json:"channels"`
+	Branches        []string             `json:"branches"`
 	Destinations    []WebhookDestination `json:"destinations"`
 	RetryPolicy     string               `json:"retry_policy"`
 	Disabled        bool                 `json:"disabled"`
