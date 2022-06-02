@@ -47,6 +47,7 @@ type WebhookHeader struct {
 // WebHookInput is used to create or update a content type
 type WebHookInput struct {
 	Name           string               `json:"name"`
+	Branches       []string             `json:"branches"`
 	Channels       []string             `json:"channels"`
 	Destinations   []WebhookDestination `json:"destinations"`
 	RetryPolicy    string               `json:"retry_policy"`
