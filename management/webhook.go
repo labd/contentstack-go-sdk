@@ -36,7 +36,7 @@ type WebhookDestination struct {
 	TargetURL         string          `json:"target_url"`
 	HttpBasicAuth     string          `json:"http_basic_auth"`
 	HttpBasicPassword string          `json:"http_basic_password"`
-	CustomHeader      []WebhookHeader `json:"custom_header"`
+	CustomHeaders     []WebhookHeader `json:"custom_header"`
 }
 
 type WebhookHeader struct {
