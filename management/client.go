@@ -18,6 +18,7 @@ type ClientConfig struct {
 	BaseURL         string
 	HTTPClient      *http.Client
 	AuthToken       string
+	OrganizationUID string
 }
 
 type UserCredentials struct {
@@ -153,7 +154,21 @@ func (c *Client) processResponse(r *http.Response, dst interface{}) error {
 	case 422:
 		result := ErrorMessage{}
 		if err = json.Unmarshal(content, &result); err != nil {
-			return err
+
+			// Contentstack can return 'invalid' json, so try to process that
+			// {"error_message":"xx","error_code":115,"errors":[{}]}
+			tmp := struct {
+				ErrorMessage string `json:"error_message"`
+				ErrorCode    int    `json:"error_code"`
+			}{}
+
+			if err = json.Unmarshal(content, &tmp); err != nil {
+				return err
+			}
+			return &ErrorMessage{
+				ErrorMessage: tmp.ErrorMessage,
+				ErrorCode:    tmp.ErrorCode,
+			}
 		}
 		return &result
 	default:
