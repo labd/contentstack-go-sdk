@@ -145,6 +145,11 @@ func (c *Client) processResponse(r *http.Response, dst interface{}) error {
 			return err
 		}
 		return fmt.Errorf("Not authorized")
+	case 404:
+		return &ErrorMessage{
+			ErrorMessage: "Resource not found",
+			ErrorCode:    404,
+		}
 	case 422:
 		result := ErrorMessage{}
 		if err = json.Unmarshal(content, &result); err != nil {
