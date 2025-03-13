@@ -13,6 +13,7 @@ type StackInstance struct {
 type StackAuth struct {
 	ApiKey          string
 	ManagementToken string
+	Branch          string
 }
 
 // Stack creates a new StackInstance which can be used for actions on the
@@ -38,6 +39,9 @@ func (si *StackInstance) headers() http.Header {
 		header.Add("authorization", si.auth.ManagementToken)
 	} else {
 		header.Add("authtoken", si.client.authToken)
+	}
+	if si.auth.Branch != "" {
+		header.Add("branch", si.auth.Branch)
 	}
 	return header
 }

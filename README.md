@@ -20,7 +20,8 @@ if err != nil {
 stackAuth := management.StackAuth{
     ApiKey:          "foobar", // Required
     ManagementToken: "secret", // Optional
-})
+    Branch:          "development", // Optional
+}
 
 instance, err := client.Stack(stackAuth)
 if err != nil {
