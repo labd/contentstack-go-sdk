@@ -8,6 +8,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
+	"time"
+
+	"golang.org/x/time/rate"
 )
 
 type Auth struct {
@@ -19,6 +23,9 @@ type ClientConfig struct {
 	HTTPClient      *http.Client
 	AuthToken       string
 	OrganizationUID string
+	RateLimit       float64
+	RateBurst       int
+	MaxRetries      int
 }
 
 type UserCredentials struct {
@@ -27,9 +34,11 @@ type UserCredentials struct {
 }
 
 type Client struct {
-	authToken  string
-	baseURL    *url.URL
-	httpClient *http.Client
+	authToken   string
+	baseURL     *url.URL
+	httpClient  *http.Client
+	rateLimiter *rate.Limiter
+	maxRetries  int
 }
 
 type ErrorMessage struct {
@@ -60,17 +69,43 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		httpClient = &http.Client{}
 	}
 
+	rateLimit := cfg.RateLimit
+	if rateLimit <= 0 {
+		rateLimit = 10.0
+	}
+
+	rateBurst := cfg.RateBurst
+	if rateBurst <= 0 {
+		rateBurst = 10
+	}
+
+	rateLimiter := rate.NewLimiter(rate.Limit(rateLimit), rateBurst)
+
+	maxRetries := cfg.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = 3
+	}
+
 	client := &Client{
-		baseURL:    url,
-		authToken:  cfg.AuthToken,
-		httpClient: httpClient,
+		baseURL:     url,
+		authToken:   cfg.AuthToken,
+		httpClient:  httpClient,
+		rateLimiter: rateLimiter,
+		maxRetries:  maxRetries,
 	}
 
 	return client, nil
 }
 
 func NewClientWithToken(auth *Auth) *Client {
-	return &Client{}
+	rateLimiter := rate.NewLimiter(rate.Limit(10.0), 10)
+
+	return &Client{
+		authToken:   auth.AuthToken,
+		httpClient:  &http.Client{},
+		rateLimiter: rateLimiter,
+		maxRetries:  3,
+	}
 }
 
 func (c *Client) head(ctx context.Context, path string, queryParams url.Values, headers http.Header) (*http.Response, error) {
@@ -102,6 +137,16 @@ func (c *Client) createEndpoint(p string) (*url.URL, error) {
 }
 
 func (c *Client) execute(ctx context.Context, method string, path string, params url.Values, headers http.Header, body io.Reader) (*http.Response, error) {
+	return c.executeWithRetry(ctx, method, path, params, headers, body, 0)
+}
+
+func (c *Client) executeWithRetry(ctx context.Context, method string, path string, params url.Values, headers http.Header, body io.Reader, attempt int) (*http.Response, error) {
+	if c.rateLimiter != nil {
+		if err := c.rateLimiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("rate limiting wait failed: %w", err)
+		}
+	}
+
 	endpoint, err := c.createEndpoint(path)
 	if err != nil {
 		return nil, err
@@ -127,7 +172,42 @@ func (c *Client) execute(ctx context.Context, method string, path string, params
 		return nil, err
 	}
 
+	if resp.StatusCode == 429 && attempt < c.maxRetries {
+		resp.Body.Close()
+		waitTime := c.calculateBackoffWait(attempt, resp)
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(waitTime):
+		}
+		return c.executeWithRetry(ctx, method, path, params, headers, body, attempt+1)
+	}
+
 	return resp, nil
+}
+
+// calculateBackoffWait calculates the wait time for exponential backoff
+func (c *Client) calculateBackoffWait(attempt int, resp *http.Response) time.Duration {
+	// Check if the server provided a Retry-After header
+	if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+		if seconds, err := strconv.Atoi(retryAfter); err == nil {
+			waitTime := time.Duration(seconds) * time.Second
+			// Cap at 60 seconds maximum
+			if waitTime > 60*time.Second {
+				waitTime = 60 * time.Second
+			}
+			return waitTime
+		}
+	}
+
+	// Simple exponential backoff: 1s, 2s, 4s, 8s, 16s, capped at 30s
+	waitTime := time.Duration(1<<uint(attempt)) * time.Second
+	if waitTime > 30*time.Second {
+		waitTime = 30 * time.Second
+	}
+
+	return waitTime
 }
 
 func (c *Client) processResponse(r *http.Response, dst interface{}) error {
@@ -171,6 +251,11 @@ func (c *Client) processResponse(r *http.Response, dst interface{}) error {
 			}
 		}
 		return &result
+	case 429:
+		return &ErrorMessage{
+			ErrorMessage: "Rate limit exceeded. All retry attempts have been exhausted. Please reduce request frequency or increase rate limiting configuration.",
+			ErrorCode:    429,
+		}
 	default:
 		return fmt.Errorf("Unhandled StatusCode: %d", r.StatusCode)
 	}
