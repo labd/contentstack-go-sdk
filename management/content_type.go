@@ -37,13 +37,32 @@ type ContentTypeInput struct {
 }
 
 type ContentTypeOptions struct {
-	Title       string   `json:"title"`
-	Publishable bool     `json:"bool"`
-	IsPage      bool     `json:"is_page"`
-	Singleton   bool     `json:"singleton"`
-	SubTitle    []string `json:"sub_title"`
-	UrlPattern  string   `json:"url_pattern"`
-	UrlPrefix   string   `json:"url_prefix"`
+	Title       string     `json:"title"`
+	Publishable bool       `json:"bool"`
+	IsPage      bool       `json:"is_page"`
+	Singleton   bool       `json:"singleton"`
+	SubTitle    []string   `json:"sub_title"`
+	UrlPattern  FlexString `json:"url_pattern"`
+	UrlPrefix   FlexString `json:"url_prefix"`
+}
+
+// FlexString unmarshals a JSON value that is either a string or a boolean.
+// The Contentstack API returns false (boolean) for string fields that are unset,
+// rather than omitting them or returning an empty string.
+type FlexString string
+
+func (f *FlexString) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*f = FlexString(s)
+		return nil
+	}
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		*f = ""
+		return nil
+	}
+	return fmt.Errorf("FlexString: cannot unmarshal %s into string or bool", data)
 }
 
 func (si *StackInstance) ContentTypeCreate(ctx context.Context, input ContentTypeInput) (*ContentType, error) {
