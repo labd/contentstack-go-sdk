@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	"golang.org/x/time/rate"
 )
 
 type Auth struct {
@@ -19,6 +21,8 @@ type ClientConfig struct {
 	HTTPClient      *http.Client
 	AuthToken       string
 	OrganizationUID string
+	RateLimit       float64
+	RateBurst       int
 }
 
 type UserCredentials struct {
@@ -27,9 +31,10 @@ type UserCredentials struct {
 }
 
 type Client struct {
-	authToken  string
-	baseURL    *url.URL
-	httpClient *http.Client
+	authToken   string
+	baseURL     *url.URL
+	httpClient  *http.Client
+	rateLimiter *rate.Limiter
 }
 
 type ErrorMessage struct {
@@ -60,17 +65,36 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		httpClient = &http.Client{}
 	}
 
+	rateLimit := cfg.RateLimit
+	if rateLimit <= 0 {
+		rateLimit = 10.0
+	}
+
+	rateBurst := cfg.RateBurst
+	if rateBurst <= 0 {
+		rateBurst = 10
+	}
+
+	rateLimiter := rate.NewLimiter(rate.Limit(rateLimit), rateBurst)
+
 	client := &Client{
-		baseURL:    url,
-		authToken:  cfg.AuthToken,
-		httpClient: httpClient,
+		baseURL:     url,
+		authToken:   cfg.AuthToken,
+		httpClient:  httpClient,
+		rateLimiter: rateLimiter,
 	}
 
 	return client, nil
 }
 
 func NewClientWithToken(auth *Auth) *Client {
-	return &Client{}
+	rateLimiter := rate.NewLimiter(rate.Limit(10.0), 10)
+
+	return &Client{
+		authToken:   auth.AuthToken,
+		httpClient:  &http.Client{},
+		rateLimiter: rateLimiter,
+	}
 }
 
 func (c *Client) head(ctx context.Context, path string, queryParams url.Values, headers http.Header) (*http.Response, error) {
@@ -102,6 +126,12 @@ func (c *Client) createEndpoint(p string) (*url.URL, error) {
 }
 
 func (c *Client) execute(ctx context.Context, method string, path string, params url.Values, headers http.Header, body io.Reader) (*http.Response, error) {
+	if c.rateLimiter != nil {
+		if err := c.rateLimiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("rate limiting wait failed: %w", err)
+		}
+	}
+
 	endpoint, err := c.createEndpoint(path)
 	if err != nil {
 		return nil, err
