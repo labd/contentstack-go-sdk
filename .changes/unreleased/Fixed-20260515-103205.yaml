@@ -1,0 +1,3 @@
+kind: Fixed
+body: Handle boolean false for UrlPattern and UrlPrefix in ContentTypeOptions
+time: 2026-05-15T10:32:05.163126262+02:00
