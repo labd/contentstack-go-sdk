@@ -15,7 +15,7 @@ jobs:
     if: github.event.pull_request.user.id == 49699333
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Fetch Dependabot metadata
         id: dependabot-metadata
@@ -29,7 +29,7 @@ jobs:
           version: latest
           args: new --body "${{ github.event.pull_request.title }}" --kind Dependency
 
-      - uses: stefanzweifel/git-auto-commit-action@acbe8b15bfea3c08ecd23f3a982067a91e34533e # v7-next
+      - uses: stefanzweifel/git-auto-commit-action@53ee9ba4a300e5c69143f881fe89c70027fbf83b # v7-next
         with:
           commit_message: "chore(deps): add changelog for dependabot updates"
           commit_user_name: "dependabot[bot]"
