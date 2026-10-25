@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 )
@@ -131,8 +130,11 @@ func (c *Client) execute(ctx context.Context, method string, path string, params
 }
 
 func (c *Client) processResponse(r *http.Response, dst interface{}) error {
-	content, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
+	content, err := io.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
 
 	switch r.StatusCode {
 	case 200, 201:
