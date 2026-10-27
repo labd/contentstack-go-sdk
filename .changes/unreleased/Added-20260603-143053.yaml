@@ -1,0 +1,3 @@
+kind: Added
+body: Added Notifiers field to WebHook and WebHookInput structs to support email notification on circuit breaker events
+time: 2026-06-03T14:30:53.347423+01:00

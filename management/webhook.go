@@ -30,6 +30,7 @@ type WebHook struct {
 	RetryPolicy     string               `json:"retry_policy"`
 	Disabled        bool                 `json:"disabled"`
 	ConcisePayload  bool                 `json:"concise_payload"`
+	Notifiers       []string             `json:"notifiers"`
 }
 
 type WebhookDestination struct {
@@ -53,6 +54,7 @@ type WebHookInput struct {
 	RetryPolicy    string               `json:"retry_policy"`
 	Disabled       bool                 `json:"disabled"`
 	ConcisePayload bool                 `json:"concise_payload"`
+	Notifiers      []string             `json:"notifiers"`
 }
 
 func (si *StackInstance) WebHookCreate(ctx context.Context, input WebHookInput) (*WebHook, error) {
